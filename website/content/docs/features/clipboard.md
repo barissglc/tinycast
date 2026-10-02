@@ -99,6 +99,11 @@ a common domain ending, so `Safari.app`, `report.pdf` and `index.html` stay text
 - Pasting a pinned entry doesn't change its position.
 - **Unpinning an entry makes it the newest entry**, instead of returning it to an old date group.
 
+For a pinned text entry, choose **Edit Entry** from Actions to update its saved text. **Save** or
+<kbd>⌘</kbd><kbd>return</kbd> saves; **Cancel** or <kbd>esc</kbd> discards your changes.
+<kbd>return</kbd> inserts a new line. The entry keeps its pin and position, and saving does not
+replace the current system clipboard. Image and file entries cannot be edited.
+
 ## Searching text inside images and PDFs
 
 **Search text in images and PDFs** is **off** by default. When you turn it on, Tinycast reads the

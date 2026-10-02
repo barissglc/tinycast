@@ -876,4 +876,8 @@ final class AppCore {
     ) async -> [String: String]? {
         await dialogs.fillSnippetArguments(snippetName: snippetName, arguments: arguments)
     }
+
+    func editPinnedClipboardText(_ text: String) async -> String? {
+        await dialogs.editPinnedClipboardText(text)
+    }
 }

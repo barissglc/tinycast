@@ -397,7 +397,7 @@ private struct ClipboardInfoSection: View {
             }
         }
         .padding(.top, metrics.spacing.xl)
-        .task(id: item.id) { await loadDetails() }
+        .task(id: item) { await loadDetails() }
     }
 
     private var rows: [InfoRow] {
@@ -462,7 +462,7 @@ private struct ClipboardInfoSection: View {
         let text = item.kind == .text ? item.text : nil
         let url = imageURL
         let filePath = item.filePath
-        details = await Task.detached(priority: .userInitiated) {
+        let loaded = await Task.detached(priority: .userInitiated) {
             var details = Details()
             if let text {
                 details.characters = text.count
@@ -480,6 +480,8 @@ private struct ClipboardInfoSection: View {
             }
             return details
         }.value
+        guard !Task.isCancelled else { return }
+        details = loaded
     }
 
     /// Single pass: `split(whereSeparator:)` allocates per word, which a multi-MB copy feels.

@@ -20,6 +20,7 @@ struct ClipboardItem: Identifiable, Hashable, Sendable {
     let pinnedAt: Date?
 
     var isPinned: Bool { pinnedAt != nil }
+    var canEditPinnedText: Bool { kind == .text && isPinned }
 
     /// The referenced path, so no call site re-derives a file entry's meaning from `text`.
     var filePath: String? { kind == .file ? text : nil }
@@ -403,6 +404,24 @@ final class ClipboardStore {
 
     func togglePinned(_ item: ClipboardItem) {
         if item.isPinned { unpin(item) } else { pin(item) }
+    }
+
+    @discardableResult
+    func updatePinnedText(id: UUID, text: String) -> Bool {
+        guard !text.isEmpty, let index = items.firstIndex(where: { $0.id == id }),
+            items[index].canEditPinnedText,
+            let stmt = prepare("UPDATE items SET text = ? WHERE id = ? AND kind = 'text' AND pinned_at IS NOT NULL")
+        else { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, text, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, id.uuidString, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_DONE, sqlite3_changes(db) == 1 else { return false }
+        let current = items[index]
+        items[index] = ClipboardItem(
+            id: current.id, kind: current.kind, text: text, imagePath: current.imagePath,
+            createdAt: current.createdAt, sourceBundleID: current.sourceBundleID,
+            pinnedAt: current.pinnedAt)
+        return true
     }
 
     func remove(_ item: ClipboardItem) {

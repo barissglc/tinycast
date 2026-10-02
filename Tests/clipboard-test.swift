@@ -11,6 +11,9 @@ struct ClipboardTests {
         pinOrder()
         unpinRejoinsAsNewest()
         pasteLeavesPinsAlone()
+        editingPreservesPinnedMetadata()
+        editedPinsRefreshSearchAndPersist()
+        editingRejectsUnavailablePins()
         pinsSurvivePruningAndTheWindow()
         pinsLeadFilteredSearches()
         pinnedSlotResolutionUsesVisiblePins()
@@ -40,6 +43,95 @@ struct ClipboardTests {
     }
 
     // MARK: - Cases
+
+    static func editingPreservesPinnedMetadata() {
+        withStore { store, _ in
+            let old = Date().addingTimeInterval(-180 * 86_400)
+            let pin = ClipboardItem(
+                id: UUID(), kind: .text, text: "original", imagePath: nil, createdAt: old,
+                sourceBundleID: "com.example.source", pinnedAt: old)
+            let next = ClipboardItem(
+                id: UUID(), kind: .text, text: "second", imagePath: nil, createdAt: old,
+                sourceBundleID: nil, pinnedAt: old.addingTimeInterval(1))
+            store.importEntries([pin, next])
+            let original = item(store, "original")
+            expect(store.updatePinnedText(id: pin.id, text: "  updated\nç🙂  "), "edit succeeds")
+            let edited = store.items.first { $0.id == pin.id }
+            expect(edited?.text == "  updated\nç🙂  ", "edit preserves exact multiline Unicode text")
+            expect(edited?.createdAt == original.createdAt, "edit preserves the original date")
+            expect(edited?.pinnedAt == original.pinnedAt, "edit preserves the pin date")
+            expect(edited?.sourceBundleID == pin.sourceBundleID, "edit preserves the source")
+            expect(edited?.kind == .text && edited?.imagePath == nil, "edit preserves the kind")
+            expect(store.pinnedItem(at: 0, in: "", filter: .all)?.id == pin.id, "pin slot is stable")
+            expect(store.items.count == 2, "edit replaces the row without duplicating it")
+            store.enforceLimits()
+            expect(store.items.contains { $0.id == pin.id }, "an edited old pin survives retention")
+        }
+    }
+
+    static func editedPinsRefreshSearchAndPersist() {
+        withStore { store, dir in
+            store.addText("original needle", sourceBundleID: nil)
+            store.togglePinned(item(store, "original needle"))
+            let pin = item(store, "original needle")
+            _ = store.search("", filter: .all)
+            _ = store.search("original", filter: .text)
+            expect(store.updatePinnedText(id: pin.id, text: "replacement.example.com"), "replace pin")
+            expect(store.search("original", filter: .all).isEmpty, "old cached query no longer matches")
+            expect(store.search("replacement", filter: .link).first?.id == pin.id, "new text is found")
+            expect(store.search("", filter: .text).isEmpty, "type filter follows the new content")
+            store.close()
+            let reopened = ClipboardStore(directory: dir)
+            reopened.load()
+            expect(reopened.search("original", filter: .all).isEmpty, "FTS drops the old text")
+            expect(reopened.search("replacement", filter: .all).first?.id == pin.id, "edit persists")
+            expect(
+                abs(
+                    (reopened.items.first?.pinnedAt?.timeIntervalSince1970 ?? 0)
+                        - (pin.pinnedAt?.timeIntervalSince1970 ?? 1)) < 0.000001,
+                "reloaded pin keeps its date")
+            reopened.togglePinned(reopened.items[0])
+            expect(
+                reopened.search("replacement", filter: .all).first?.id == pin.id,
+                "FTS finds new text after unpin")
+            expect(reopened.search("original", filter: .all).isEmpty, "FTS never returns old text")
+        }
+    }
+
+    static func editingRejectsUnavailablePins() {
+        withStore { store, _ in
+            store.addText("ordinary", sourceBundleID: nil)
+            let ordinary = item(store, "ordinary")
+            expect(!store.updatePinnedText(id: ordinary.id, text: "changed"), "ordinary rows cannot edit")
+            store.togglePinned(ordinary)
+            expect(!store.updatePinnedText(id: ordinary.id, text: ""), "empty edits are rejected")
+            expect(item(store, "ordinary").text == "ordinary", "rejection preserves the text")
+            expect(store.updatePinnedText(id: ordinary.id, text: "ordinary"), "unchanged save succeeds")
+            store.togglePinned(item(store, "ordinary"))
+            expect(
+                !store.updatePinnedText(id: ordinary.id, text: "changed"),
+                "a stale unpinned draft cannot save")
+            store.remove(item(store, "ordinary"))
+            expect(!store.updatePinnedText(id: ordinary.id, text: "changed"), "a deleted pin cannot return")
+            expect(!store.updatePinnedText(id: UUID(), text: "changed"), "missing ids are rejected")
+            let image = ClipboardItem(
+                id: UUID(), kind: .image, text: nil, imagePath: "/synthetic/image.png",
+                createdAt: Date(), sourceBundleID: nil, pinnedAt: Date())
+            let file = ClipboardItem(
+                id: UUID(), kind: .file, text: "/synthetic/file.txt", imagePath: nil,
+                createdAt: Date(), sourceBundleID: nil, pinnedAt: Date())
+            store.importEntries([image, file])
+            expect(store.items.contains { $0.id == image.id }, "image fixture was imported")
+            expect(store.items.contains { $0.id == file.id }, "file fixture was imported")
+            expect(!store.updatePinnedText(id: image.id, text: "changed"), "images cannot edit")
+            expect(!store.updatePinnedText(id: file.id, text: "changed"), "file paths cannot edit")
+            store.addText("closed pin", sourceBundleID: nil)
+            store.togglePinned(item(store, "closed pin"))
+            let closedPin = item(store, "closed pin")
+            store.close()
+            expect(!store.updatePinnedText(id: closedPin.id, text: "changed"), "a closed store cannot edit")
+        }
+    }
 
     /// Pins stack in pin order, oldest pin first, regardless of how old the entries are.
     static func pinOrder() {

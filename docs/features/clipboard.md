@@ -358,6 +358,13 @@ Pasting a pinned entry deliberately does **not** promote it: it holds its place 
 section, so `promote` skips pinned rows instead of rewriting the row and its FTS entry for no
 visible change.
 
+**Edit Entry** appears in Actions for pinned text entries. The dialog edits a draft: Save or ⌘↵
+updates the existing row, while Cancel, Escape or click-away discard it. Return inserts a newline.
+An empty draft cannot be saved. The UUID, copy date, source and pin timestamp stay unchanged, so the
+pin retains its slot and retention exemption. The existing SQLite text-update trigger refreshes FTS,
+and replacing the resident item invalidates search and type-filter caches. Saving does not write to
+the system clipboard. A deleted or unpinned entry cannot be resurrected by a pending edit.
+
 Paste and Keep Window Open (⌥↵) does not promote any entry. The rows hold still under the
 selection, so ↓ then ⌥↵ pastes a run of entries in order. `Paster.write` therefore only writes the
 pasteboard; `paste` and `copy` promote after it, and `pasteInPlace` does not.
