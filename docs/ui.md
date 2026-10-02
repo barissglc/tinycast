@@ -494,9 +494,10 @@ sole owner rule) and is the only presenter, so every confirmation in the app loo
 - **Keys.** `DialogPanel.sendEvent` intercepts Esc and ↵ directly instead of relying on SwiftUI
   `onKeyPress`, so the keys work without anything inside the dialog holding focus. Buttons don't print
   a key cap; after `tooltipDelay` of deliberate hover, `.tooltip(keyCap:)` fades in the shared
-  `Tooltip` tile holding an outlined `KeyCapChip` for the key the panel actually handles (`↵`, `⎋`).
-  Only those two keys are ever advertised, so a shown cap cannot drift from dialog behavior.
-  **↵ runs the dialog's primary action; Escape cancels**, on every dialog including destructive ones.
+  `Tooltip` tile holding an outlined `KeyCapChip` for the confirm or cancel chord the panel handles
+  (`↵` or `⌘↵`, and `⎋`), so a shown cap cannot drift from dialog behavior.
+  **↵ runs the dialog's primary action; Escape cancels**, including destructive ones. The multiline
+  clipboard editor uses **⌘↵ to save**, leaving plain Return for newlines; its Save tooltip matches.
   Arrow keys walk the volume slider along the same 5% grid the volume commands use (`DialogPanel`
   reports `.increment` / `.decrement` and `DialogController` applies `VolumeLevel.stepped`, so the
   panel never learns what a volume step is); click-away resolves as a dismissal.
@@ -627,7 +628,8 @@ it would couple two unrelated surfaces.
 
 A dialog carries at most one control beyond its buttons, and `DialogAccessory` makes that structural
 rather than a convention — `.volume` for the Set Volume prompt, `.eventDraft` for New Event,
-`.snippetArguments` for a snippet's `{argument}` values. Text fields take `dialogTextField()`;
+`.snippetArguments` for a snippet's `{argument}` values, and `.clipboardText` for editing a pinned
+clipboard entry. Text fields take `dialogTextField()`;
 New Event groups its fixed start and duration values into two local segmented bars, while a snippet's
 inline enumerated arguments remain `DialogChip`s. Two things follow from the enum:
 

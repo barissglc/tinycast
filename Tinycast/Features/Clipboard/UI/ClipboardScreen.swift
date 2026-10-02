@@ -202,6 +202,12 @@ enum ClipboardActionsMenu {
                     core.clipboardCoordinator.togglePinnedClip(item)
                 })
         }
+        if item.canEditPinnedText {
+            items.append(
+                PopoverMenuItem(title: "Edit Entry", systemImage: "pencil") {
+                    Task { await core.clipboardCoordinator.editPinnedClip(item) }
+                })
+        }
         if item.offersTextExtraction {
             items.append(
                 PopoverMenuItem(

@@ -258,6 +258,18 @@ final class ClipboardCoordinator {
         palette.followToken = UUID()
     }
 
+    func editPinnedClip(_ item: ClipboardItem) async {
+        guard item.canEditPinnedText, let original = item.text,
+            let text = await core.editPinnedClipboardText(original)
+        else { return }
+        guard clipboardStore.updatePinnedText(id: item.id, text: text) else {
+            core.showMessage("Couldn’t update that pinned entry.", tone: .danger)
+            return
+        }
+        selectClip(item)
+        palette.followToken = UUID()
+    }
+
     /// Select `item`'s row as currently filtered; a moved row isn't always index 0.
     private func selectClip(_ item: ClipboardItem) {
         palette.selection =

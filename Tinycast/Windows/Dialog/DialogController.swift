@@ -106,6 +106,18 @@ final class DialogController: NSObject, NSWindowDelegate {
         return state.values
     }
 
+    func editPinnedClipboardText(_ text: String) async -> String? {
+        let state = ClipboardTextEditState(text: text)
+        let request = DialogRequest(
+            title: "Edit Pinned Entry", message: "The entry keeps its pin and position.",
+            symbol: "pin", actions: [
+                DialogAction(title: "Save"), DialogAction(title: "Cancel", role: .cancel)
+            ],
+            defaultIndex: 0, cancelIndex: 1, accessory: .clipboardText(state))
+        guard await present(request) == 0 else { return nil }
+        return state.text
+    }
+
     private func present(_ request: DialogRequest) async -> Int {
         // Keyed on the continuation, so a panel still fading can't swallow the next.
         guard continuation == nil else { return request.cancelIndex }
@@ -115,7 +127,7 @@ final class DialogController: NSObject, NSWindowDelegate {
             let width =
                 switch request.accessory {
                 case nil, .volume: metrics.size.dialogCompactWidth
-                case .eventDraft, .snippetArguments: metrics.size.dialogWidth
+                case .eventDraft, .snippetArguments, .clipboardText: metrics.size.dialogWidth
                 }
             let content = hostingView(
                 DialogView(
@@ -127,6 +139,7 @@ final class DialogController: NSObject, NSWindowDelegate {
                 width: width, minHeight: 0)
             let panel = DialogPanel(content: content, cornerRadius: metrics.radius.panel)
             panel.handlesArrowKeys = request.accessory?.claimsArrowKeys ?? false
+            panel.requiresCommandReturn = request.accessory?.requiresCommandReturn ?? false
             panel.delegate = self
             panel.onKey = { [weak self] key in
                 guard let self else { return }
@@ -145,6 +158,7 @@ final class DialogController: NSObject, NSWindowDelegate {
             self.panel = panel
             place(panel)
             show(panel)
+            if case .clipboardText(let state) = request.accessory { state.isPresented = true }
         }
     }
 
@@ -169,10 +183,12 @@ final class DialogController: NSObject, NSWindowDelegate {
 
     /// A refused primary action leaves the dialog up, as a greyed-out button would.
     private static func accepts(_ index: Int, for request: DialogRequest) -> Bool {
-        guard index == request.defaultIndex, case .eventDraft(let state) = request.accessory else {
-            return true
+        guard index == request.defaultIndex else { return true }
+        switch request.accessory {
+        case .eventDraft(let state): return state.draft.isValid
+        case .clipboardText(let state): return !state.text.isEmpty
+        default: return true
         }
-        return state.draft.isValid
     }
 
     /// Resumes before the fade finishes, so a confirmation isn't held up by animation.

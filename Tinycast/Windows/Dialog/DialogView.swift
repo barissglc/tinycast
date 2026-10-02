@@ -48,6 +48,7 @@ struct DialogView: View {
                 case .volume(let volume): VolumeSlider(state: volume)
                 case .eventDraft(let draft): EventDraftFields(state: draft)
                 case .snippetArguments(let arguments): SnippetArgumentFields(state: arguments)
+                case .clipboardText(let text): ClipboardTextEditor(state: text)
                 case nil: EmptyView()
                 }
             }
@@ -104,7 +105,9 @@ struct DialogView: View {
 
     /// Only the two keys the panel handles are advertised, so a tooltip can't drift.
     private func keyCap(for index: Int) -> String? {
-        if index == request.defaultIndex { return "↵" }
+        if index == request.defaultIndex {
+            return request.accessory?.requiresCommandReturn == true ? "⌘↵" : "↵"
+        }
         if index == request.cancelIndex { return "⎋" }
         return nil
     }
